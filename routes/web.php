@@ -16,6 +16,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+    // --- ABSENSI
+    Route::get('/attendance/scan', [AttendanceController::class, 'scanPage'])->name('attendance.scan');
+    Route::post('/attendance/scan', [AttendanceController::class, 'processScan'])->name('attendance.process');
+
     // --- LAPORAN
     Route::get('/laporan', [AttendanceController::class, 'report'])->name('laporan.index');
 

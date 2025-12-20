@@ -22,8 +22,8 @@ class AttendanceController extends Controller
 
         // 2. Query Builder
         $query = Attendance::with('jamaah') // Eager load relasi jamaah biar cepat
-                    ->whereDate('tanggal', '>=', $startDate)
-                    ->whereDate('tanggal', '<=', $endDate);
+            ->whereDate('tanggal', '>=', $startDate)
+            ->whereDate('tanggal', '<=', $endDate);
 
         // Jika ada filter per orang
         if ($jamaahId) {
@@ -32,13 +32,101 @@ class AttendanceController extends Controller
 
         // Urutkan dari yang paling baru masuk
         $attendances = $query->orderBy('waktu_hadir', 'desc')
-                             ->paginate(20)
-                             ->withQueryString(); // Agar pagination tetap membawa parameter filter
+            ->paginate(20)
+            ->withQueryString(); // Agar pagination tetap membawa parameter filter
 
         // 3. Ambil data Jamaah untuk Dropdown Filter
         $allJamaah = Jamaah::orderBy('nama_lengkap')->get();
 
         return view('attendance.report', compact('attendances', 'startDate', 'endDate', 'allJamaah', 'jamaahId'));
+    }
+
+    /**
+     * Halaman Scan Wajah
+     */
+    public function scanPage()
+    {
+        return view('attendance.scan');
+    }
+
+    /**
+     * Proses Scan Wajah (Ajax)
+     * Menerima Upload Foto -> Kirim ke Python -> Simpan DB
+     */
+    public function processScan(Request $request)
+    {
+        $request->validate([
+            'image' => 'required|image'
+        ]);
+
+        $image = $request->file('image');
+
+        // Send to Python API
+        try {
+            // Default URL or from .env
+            $pythonUrl = env('PYTHON_API_URL', 'http://localhost:5000');
+
+            // Post multipart to Flask
+            $response = \Illuminate\Support\Facades\Http::attach(
+                'image',
+                file_get_contents($image->getRealPath()),
+                $image->getClientOriginalName()
+            )->timeout(5)->post("{$pythonUrl}/predict");
+
+            if ($response->successful()) {
+                $result = $response->json();
+
+                if (isset($result['success']) && $result['success'] && $result['match']) {
+                    $jamaahId = $result['dataset_id'];
+                    $confidence = $result['confidence'];
+
+                    // Cek User
+                    $jamaah = Jamaah::find($jamaahId);
+                    if (!$jamaah) {
+                        return response()->json(['status' => 'error', 'message' => 'Wajah terdeteksi (ID:' . $jamaahId . ') tapi data user tidak ditemukan.']);
+                    }
+
+                    // Cek Duplikat Hari Ini
+                    $alreadyPresent = Attendance::where('jamaah_id', $jamaahId)
+                        ->whereDate('tanggal', Carbon::today())
+                        ->exists();
+
+                    if ($alreadyPresent) {
+                        return response()->json([
+                            'status' => 'warning',
+                            'message' => "Halo {$jamaah->nama_lengkap}, Anda sudah absen masuk hari ini."
+                        ]);
+                    }
+
+                    // Simpan Foto Bukti
+                    $path = $image->store('captures/' . date('Y-m-d'), 'public');
+
+                    // Simpan Absensi
+                    Attendance::create([
+                        'jamaah_id' => $jamaahId,
+                        'waktu_hadir' => Carbon::now(),
+                        'tanggal' => Carbon::today(),
+                        'capture_image_path' => $path,
+                        'confidence_score' => $confidence,
+                        'lokasi_kamera' => 'Webcam Front'
+                    ]);
+
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => "Selamat Datang, {$jamaah->nama_lengkap}!",
+                        'user_name' => $jamaah->nama_lengkap,
+                        'time' => Carbon::now()->format('H:i')
+                    ]);
+                } else {
+                    return response()->json(['status' => 'error', 'message' => 'Wajah tidak dikenali. Silakan coba lagi.']);
+                }
+            } else {
+                return response()->json(['status' => 'error', 'message' => 'Gagal menghubungi AI Service: ' . $response->status()]);
+            }
+
+        } catch (\Exception $e) {
+            return response()->json(['status' => 'error', 'message' => 'System Error: ' . $e->getMessage()]);
+        }
     }
 
     /**
@@ -53,7 +141,7 @@ class AttendanceController extends Controller
         }
 
         $attendance = Attendance::findOrFail($id);
-        
+
         // Hapus file foto capture jika ada (untuk hemat storage)
         if ($attendance->capture_image_path && file_exists(storage_path('app/public/' . $attendance->capture_image_path))) {
             unlink(storage_path('app/public/' . $attendance->capture_image_path));
