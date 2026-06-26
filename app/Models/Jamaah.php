@@ -12,7 +12,8 @@ class Jamaah extends Model
     protected $table = 'jamaah';
 
     protected $fillable = [
-        'nik',
+        'tempat_lahir',
+        'tanggal_lahir',
         'nama_lengkap',
         'jenis_kelamin',
         'no_hp',
@@ -36,8 +37,18 @@ class Jamaah extends Model
         return $this->hasMany(Attendance::class, 'jamaah_id');
     }
 
+    public function group()
+    {
+        return $this->belongsTo(PengajianGroup::class, 'pengajian_group_id');
+    }
+
+    public function rapots()
+    {
+        return $this->hasMany(Rapot::class);
+    }
+
     // --- SCOPES (Query Shortcut) ---
-    
+
     /**
      * Filter hanya jamaah yang aktif
      * Cara pakai: Jamaah::active()->get();

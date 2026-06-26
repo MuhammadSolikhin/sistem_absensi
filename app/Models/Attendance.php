@@ -15,7 +15,9 @@ class Attendance extends Model
         'tanggal',
         'capture_image_path',
         'confidence_score',
-        'lokasi_kamera'
+        'lokasi_kamera',
+        'status_kehadiran',
+        'pengajian_group_id'
     ];
 
     protected $casts = [
@@ -30,5 +32,10 @@ class Attendance extends Model
     public function jamaah()
     {
         return $this->belongsTo(Jamaah::class, 'jamaah_id');
+    }
+
+    public function group()
+    {
+        return $this->belongsTo(PengajianGroup::class, 'pengajian_group_id');
     }
 }

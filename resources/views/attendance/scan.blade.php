@@ -118,7 +118,15 @@
                                 if ('speechSynthesis' in window) {
                                     let msg = new SpeechSynthesisUtterance("Selamat Datang " + data.user_name);
                                     msg.lang = 'id-ID';
-                                    speechSynthesis.speak(msg);
+                                    
+                                    // Secara eksplisit memilih Voice bahasa Indonesia
+                                    let voices = window.speechSynthesis.getVoices();
+                                    let idVoice = voices.find(v => v.lang === 'id-ID' || v.lang === 'id_ID' || v.name.toLowerCase().includes('indonesia'));
+                                    if (idVoice) {
+                                        msg.voice = idVoice;
+                                    }
+                                    
+                                    window.speechSynthesis.speak(msg);
                                 }
 
                             } else if (data.status === 'warning') {

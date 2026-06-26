@@ -86,17 +86,39 @@ class AttendanceController extends Controller
                         return response()->json(['status' => 'error', 'message' => 'Wajah terdeteksi (ID:' . $jamaahId . ') tapi data user tidak ditemukan.']);
                     }
 
-                    // Cek Duplikat Hari Ini
-                    $alreadyPresent = Attendance::where('jamaah_id', $jamaahId)
-                        ->whereDate('tanggal', Carbon::today())
-                        ->exists();
+                    // --- LOGIKA BARU: Cek Slot Waktu (18:30 vs 20:00) ---
+                    $now = Carbon::now();
+                    $today = Carbon::today();
+
+                    // Tentukan Slot Waktu berdasarkan jam sekarang
+                    // Slot 1: 17:00 - 19:45 (Covering 18:30 session)
+                    // Slot 2: 19:46 - 23:59 (Covering 20:00 session)
+                    $isSlot2 = $now->hour >= 20 || ($now->hour == 19 && $now->minute > 45);
+
+                    // Cek Duplikat di Slot yang sama
+                    $duplicateQuery = Attendance::where('jamaah_id', $jamaahId)
+                        ->whereDate('tanggal', $today);
+
+                    if ($isSlot2) {
+                        // Jika ini slot 2, cek apakah sudah absen diatas jam 19:45
+                        $duplicateQuery->whereTime('waktu_hadir', '>', '19:45:00');
+                    } else {
+                        // Jika ini slot 1, cek apakah sudah absen dibawah jam 19:45
+                        $duplicateQuery->whereTime('waktu_hadir', '<=', '19:45:00');
+                    }
+
+                    $alreadyPresent = $duplicateQuery->exists();
 
                     if ($alreadyPresent) {
                         return response()->json([
                             'status' => 'warning',
-                            'message' => "Halo {$jamaah->nama_lengkap}, Anda sudah absen masuk hari ini."
+                            'message' => "Halo {$jamaah->nama_lengkap}, Anda sudah absen untuk sesi ini."
                         ]);
                     }
+
+                    // Tentukan Group ID (Idealnya dari Schedule, tapi fallback ke default group user)
+                    // Kita ambil group_id dari user sebagai default
+                    $groupId = $jamaah->pengajian_group_id;
 
                     // Simpan Foto Bukti
                     $path = $image->store('captures/' . date('Y-m-d'), 'public');
@@ -104,11 +126,13 @@ class AttendanceController extends Controller
                     // Simpan Absensi
                     Attendance::create([
                         'jamaah_id' => $jamaahId,
-                        'waktu_hadir' => Carbon::now(),
-                        'tanggal' => Carbon::today(),
+                        'waktu_hadir' => $now,
+                        'tanggal' => $today,
                         'capture_image_path' => $path,
                         'confidence_score' => $confidence,
-                        'lokasi_kamera' => 'Webcam Front'
+                        'lokasi_kamera' => 'Webcam Front',
+                        'status_kehadiran' => 'Hadir',
+                        'pengajian_group_id' => $groupId
                     ]);
 
                     return response()->json([

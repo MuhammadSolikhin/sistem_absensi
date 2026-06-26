@@ -13,9 +13,15 @@
                     @csrf
                     @method('PUT')
                     
-                    <div class="mb-3">
-                        <label for="nik" class="form-label">NIK</label>
-                        <input type="number" class="form-control" id="nik" name="nik" value="{{ old('nik', $jamaah->nik) }}" required />
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="tempat_lahir" class="form-label">Tempat Lahir</label>
+                            <input type="text" class="form-control" id="tempat_lahir" name="tempat_lahir" value="{{ old('tempat_lahir', $jamaah->tempat_lahir) }}" required />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="tanggal_lahir" class="form-label">Tanggal Lahir</label>
+                            <input type="date" class="form-control" id="tanggal_lahir" name="tanggal_lahir" value="{{ old('tanggal_lahir', $jamaah->tanggal_lahir) }}" required />
+                        </div>
                     </div>
 
                     <div class="mb-3">
@@ -59,11 +65,14 @@
                     <div class="alert alert-success">{{ session('success') }}</div>
                 @endif
                 
-                <form action="{{ route('jamaah.upload', $jamaah->id) }}" method="POST" enctype="multipart/form-data">
+                <form action="{{ route('jamaah.upload', $jamaah->id) }}" method="POST" enctype="multipart/form-data" id="uploadForm">
                     @csrf
                     <div class="mb-3">
                         <label for="formFileMultiple" class="form-label">Pilih Foto (Bisa Banyak Sekaligus)</label>
-                        <input class="form-control" type="file" id="formFileMultiple" name="photos[]" multiple required accept="image/*">
+                        <input class="form-control mb-2" type="file" id="formFileMultiple" name="photos[]" multiple required accept="image/*">
+                        <button type="button" class="btn btn-outline-primary btn-sm w-100" data-bs-toggle="modal" data-bs-target="#cameraModal" id="btnOpenCamera">
+                            <i class="bx bx-camera me-1"></i> Ambil dari Kamera Langsung
+                        </button>
                     </div>
                     <button type="submit" class="btn btn-dark w-100">
                         <i class="bx bx-upload me-1"></i> Upload Foto
@@ -97,4 +106,96 @@
         </div>
     </div>
 </div>
+
+<!-- Camera Modal -->
+<div class="modal fade" id="cameraModal" tabindex="-1" aria-labelledby="cameraModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="cameraModalLabel">Ambil Foto Wajah</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" id="btnCloseCameraModal"></button>
+      </div>
+      <div class="modal-body text-center">
+        <video id="webcamVideo" autoplay playsinline style="width: 100%; max-width: 400px; border-radius: 8px; background: #000;"></video>
+        <canvas id="webcamCanvas" style="display: none;"></canvas>
+        <div class="mt-3 text-start" id="capturedPhotosPreview">
+             <!-- Preview captured photos here -->
+        </div>
+      </div>
+      <div class="modal-footer d-flex justify-content-between">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+        <button type="button" class="btn btn-primary" id="btnCapturePhoto"><i class="bx bx-aperture"></i> Jepret Foto</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cameraModal = document.getElementById('cameraModal');
+    const webcamVideo = document.getElementById('webcamVideo');
+    const webcamCanvas = document.getElementById('webcamCanvas');
+    const btnCapturePhoto = document.getElementById('btnCapturePhoto');
+    const fileInput = document.getElementById('formFileMultiple');
+    const capturedPhotosPreview = document.getElementById('capturedPhotosPreview');
+    let stream = null;
+    
+    cameraModal.addEventListener('show.bs.modal', async function () {
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+            webcamVideo.srcObject = stream;
+        } catch (err) {
+            console.error("Error accessing webcam: ", err);
+            alert("Tidak dapat mengakses kamera. Pastikan memberikan izin pada browser Anda.");
+        }
+    });
+
+    cameraModal.addEventListener('hide.bs.modal', function () {
+        if (stream) {
+            const tracks = stream.getTracks();
+            tracks.forEach(track => track.stop());
+            webcamVideo.srcObject = null;
+        }
+    });
+
+    btnCapturePhoto.addEventListener('click', function() {
+        if (!stream) return;
+        
+        const context = webcamCanvas.getContext('2d');
+        webcamCanvas.width = webcamVideo.videoWidth;
+        webcamCanvas.height = webcamVideo.videoHeight;
+        context.drawImage(webcamVideo, 0, 0, webcamCanvas.width, webcamCanvas.height);
+        
+        webcamCanvas.toBlob(function(blob) {
+            if(!blob) return;
+            const fileName = `camera_capture_${Date.now()}.jpg`;
+            const file = new File([blob], fileName, { type: "image/jpeg" });
+            
+            // Add file to input
+            const dataTransfer = new DataTransfer();
+            if (fileInput.files) {
+                Array.from(fileInput.files).forEach(f => dataTransfer.items.add(f));
+            }
+            dataTransfer.items.add(file);
+            fileInput.files = dataTransfer.files;
+            
+            // Remove required attribute to prevent HTML5 validation error
+            fileInput.removeAttribute('required');
+            
+            // Show preview
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(blob);
+            img.style.width = '60px';
+            img.style.height = '60px';
+            img.style.objectFit = 'cover';
+            img.className = 'img-thumbnail m-1';
+            capturedPhotosPreview.appendChild(img);
+            
+        }, 'image/jpeg', 0.9);
+    });
+});
+</script>
+@endpush

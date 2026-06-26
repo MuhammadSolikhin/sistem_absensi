@@ -20,7 +20,7 @@ class JamaahController extends Controller
 
         if ($request->has('search')) {
             $query->where('nama_lengkap', 'like', '%' . $request->search . '%')
-                ->orWhere('nik', 'like', '%' . $request->search . '%');
+                ->orWhere('tempat_lahir', 'like', '%' . $request->search . '%');
         }
 
         // Ambil data terbaru, 10 per halaman
@@ -46,8 +46,9 @@ class JamaahController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'nik' => 'required|unique:jamaah,nik|numeric|digits:16',
             'nama_lengkap' => 'required|string|max:255',
+            'tempat_lahir' => 'required|string|max:255',
+            'tanggal_lahir' => 'required|date',
             'jenis_kelamin' => 'required|in:L,P',
             'no_hp' => 'nullable|numeric',
             'alamat' => 'nullable|string',
@@ -75,8 +76,9 @@ class JamaahController extends Controller
     public function update(Request $request, Jamaah $jamaah)
     {
         $request->validate([
-            'nik' => 'required|numeric|digits:16|unique:jamaah,nik,' . $jamaah->id,
             'nama_lengkap' => 'required|string|max:255',
+            'tempat_lahir' => 'required|string|max:255',
+            'tanggal_lahir' => 'required|date',
             'jenis_kelamin' => 'required|in:L,P',
             'no_hp' => 'nullable|numeric',
             'alamat' => 'nullable|string',

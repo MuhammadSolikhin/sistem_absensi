@@ -105,6 +105,38 @@
                 </div>
             </div>
 
+            <!-- 5. Quick Actions -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title mb-3">Aksi Cepat</h5>
+                            <div class="d-flex gap-2 flex-wrap">
+                                @if(auth()->user()->role == 'admin' || auth()->user()->role == 'guru')
+                                    <a href="{{ route('attendance.scan') }}" class="btn btn-primary">
+                                        <i class="bx bx-scan me-1"></i> Scan Absensi
+                                    </a>
+                                @endif
+
+                                <a href="{{ route('jamaah.index') }}" class="btn btn-outline-secondary">
+                                    <i class="bx bx-user me-1"></i> Data Jamaah
+                                </a>
+
+                                <a href="{{ route('laporan.index') }}" class="btn btn-outline-secondary">
+                                    <i class="bx bx-file me-1"></i> Laporan
+                                </a>
+
+                                @if(auth()->user()->role == 'admin' || auth()->user()->role == 'guru')
+                                    <a href="{{ route('rapot.index') }}" class="btn btn-outline-success">
+                                        <i class="bx bx-book-bookmark me-1"></i> Rapot Caberawit
+                                    </a>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <!-- RIGHT SIDEBAR (4 cols) -->
@@ -118,13 +150,24 @@
                     <div class="card-body">
                         <p class="text-muted small">Klik tombol di bawah jika Anda baru saja menambahkan data jamaah atau foto
                             baru.</p>
-                        <form action="{{ route('system.train') }}" method="POST">
+                        <form id="trainModelForm" action="{{ route('system.train') }}" method="POST">
                             @csrf
-                            <button type="submit" class="btn btn-primary w-100"
-                                onclick="return confirm('Proses training mungkin memakan waktu beberapa menit. Lanjutkan?')">
+                            <button type="submit" class="btn btn-primary w-100" id="btnTrainModel">
                                 <span class="tf-icons bx bx-scan me-1"></span> Train Face Model
                             </button>
                         </form>
+
+                        <!-- Progress Bar Container (Hidden initially) -->
+                        <div id="trainProgressContainer" class="mt-3" style="display: none;">
+                            <p class="text-center text-primary mb-1 small fw-bold">Memproses Training Model AI...</p>
+                            <div class="progress" style="height: 12px; border-radius: 6px;">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 100%" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <p class="text-center text-muted mb-0 mt-1 small" style="font-size: 0.75rem;">Harap tunggu, proses ini mungkin memakan waktu beberapa menit.</p>
+                        </div>
+                        
+                        <!-- Notification Message -->
+                        <div id="trainNotification" class="mt-3 alert" style="display: none; padding: 10px; font-size: 0.85rem;"></div>
                     </div>
                 </div>
             @endif
@@ -167,6 +210,66 @@
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
+            // AI Training Logic
+            const trainForm = document.getElementById('trainModelForm');
+            const btnTrain = document.getElementById('btnTrainModel');
+            const progressContainer = document.getElementById('trainProgressContainer');
+            const trainNotification = document.getElementById('trainNotification');
+
+            if (trainForm) {
+                trainForm.addEventListener('submit', function(e) {
+                    e.preventDefault(); // Mencegah reload halaman
+                    
+                    // Sembunyikan notifikasi lama, tampilkan progress bar
+                    trainNotification.style.display = 'none';
+                    trainNotification.className = 'mt-3 alert';
+                    progressContainer.style.display = 'block';
+                    
+                    // Disable tombol
+                    btnTrain.disabled = true;
+                    btnTrain.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Training...';
+
+                    // Gunakan Fetch API untuk AJAX Request
+                    fetch(trainForm.action, {
+                        method: 'POST',
+                        body: new FormData(trainForm),
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => response.json().then(data => ({ status: response.status, body: data })))
+                    .then(res => {
+                        // Sembunyikan progress bar
+                        progressContainer.style.display = 'none';
+                        
+                        // Kembalikan tombol ke semula
+                        btnTrain.disabled = false;
+                        btnTrain.innerHTML = '<span class="tf-icons bx bx-scan me-1"></span> Train Face Model';
+                        
+                        // Tampilkan notifikasi
+                        trainNotification.style.display = 'block';
+                        if (res.status >= 200 && res.status < 300) {
+                            trainNotification.classList.add('alert-success');
+                            trainNotification.innerHTML = '<i class="bx bx-check-circle me-1"></i> ' + (res.body.message || 'Training Model berhasil diselesaikan!');
+                        } else {
+                            trainNotification.classList.add('alert-danger');
+                            trainNotification.innerHTML = '<i class="bx bx-error-circle me-1"></i> ' + (res.body.message || 'Gagal memulai training.');
+                        }
+                    })
+                    .catch(err => {
+                        progressContainer.style.display = 'none';
+                        btnTrain.disabled = false;
+                        btnTrain.innerHTML = '<span class="tf-icons bx bx-scan me-1"></span> Train Face Model';
+                        
+                        trainNotification.style.display = 'block';
+                        trainNotification.classList.add('alert-danger');
+                        trainNotification.innerHTML = '<i class="bx bx-error-circle me-1"></i> Gagal terhubung ke server.';
+                        console.error("Training Error: ", err);
+                    });
+                });
+            }
+
             // Ambil data dari Controller Laravel (dikirim via json_encode)
             const labels = {!! json_encode($chartLabels) !!};
             const data = {!! json_encode($chartData) !!};

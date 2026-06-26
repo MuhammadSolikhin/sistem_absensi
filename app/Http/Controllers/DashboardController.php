@@ -75,16 +75,25 @@ class DashboardController extends Controller
             ])->post("{$pythonUrl}/train");
 
             if ($response->successful()) {
+                if (request()->wantsJson() || request()->ajax()) {
+                    return response()->json(['status' => 'success', 'message' => 'Training Model berhasil diselesaikan! AI kini sudah mengenali wajah terbaru.']);
+                }
                 return back()->with('success', 'Perintah Training berhasil dikirim ke sistem AI. Mohon tunggu beberapa saat.');
             } else {
                 // Jika Python error (misal 500 atau 401)
                 Log::error('Training Error: ' . $response->body());
+                if (request()->wantsJson() || request()->ajax()) {
+                    return response()->json(['status' => 'error', 'message' => 'Gagal memulai training. Respon sistem AI: ' . $response->status()], 500);
+                }
                 return back()->with('error', 'Gagal memulai training. Respon sistem AI: ' . $response->status());
             }
 
         } catch (\Exception $e) {
             // Jika koneksi putus (Python mati)
             Log::error('Connection Error: ' . $e->getMessage());
+            if (request()->wantsJson() || request()->ajax()) {
+                return response()->json(['status' => 'error', 'message' => 'Tidak dapat terhubung ke Service Python. Pastikan script Python berjalan.'], 500);
+            }
             return back()->with('error', 'Tidak dapat terhubung ke Service Python. Pastikan script Python berjalan.');
         }
     }

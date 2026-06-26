@@ -15,7 +15,7 @@
             <form action="{{ route('jamaah.index') }}" method="GET" class="mb-4">
                 <div class="input-group input-group-merge">
                     <span class="input-group-text"><i class="bx bx-search"></i></span>
-                    <input type="text" name="search" class="form-control" placeholder="Cari berdasarkan Nama atau NIK..."
+                    <input type="text" name="search" class="form-control" placeholder="Cari berdasarkan Nama atau Tempat Lahir..."
                         value="{{ request('search') }}">
                     <button type="submit" class="btn btn-primary">Cari</button>
                 </div>
@@ -33,7 +33,7 @@
                     <thead>
                         <tr>
                             <th>#</th>
-                            <th>NIK</th>
+                            <th>Tempat/Tgl Lahir</th>
                             <th>Nama Lengkap</th>
                             <th>L/P</th>
                             <th>Status Dataset</th>
@@ -44,7 +44,7 @@
                         @forelse($jamaah as $item)
                             <tr>
                                 <td>{{ $loop->iteration + $jamaah->firstItem() - 1 }}</td>
-                                <td><span class="fw-medium">{{ $item->nik }}</span></td>
+                                <td><span class="fw-medium">{{ $item->tempat_lahir }}, {{ $item->tanggal_lahir ? \Carbon\Carbon::parse($item->tanggal_lahir)->format('d M Y') : '-' }}</span></td>
                                 <td>{{ $item->nama_lengkap }}</td>
                                 <td>
                                     @if($item->jenis_kelamin == 'L')

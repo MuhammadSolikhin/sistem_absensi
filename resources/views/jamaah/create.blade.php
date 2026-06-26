@@ -14,10 +14,17 @@
                 <form action="{{ route('jamaah.store') }}" method="POST">
                     @csrf
                     
-                    <div class="mb-3">
-                        <label class="form-label" for="nik">NIK (Nomor Induk Kependudukan)</label>
-                        <input type="number" class="form-control @error('nik') is-invalid @enderror" id="nik" name="nik" placeholder="16 digit angka" value="{{ old('nik') }}" required />
-                        @error('nik') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="tempat_lahir">Tempat Lahir</label>
+                            <input type="text" class="form-control @error('tempat_lahir') is-invalid @enderror" id="tempat_lahir" name="tempat_lahir" placeholder="Contoh: Jakarta" value="{{ old('tempat_lahir') }}" required />
+                            @error('tempat_lahir') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" for="tanggal_lahir">Tanggal Lahir</label>
+                            <input type="date" class="form-control @error('tanggal_lahir') is-invalid @enderror" id="tanggal_lahir" name="tanggal_lahir" value="{{ old('tanggal_lahir') }}" required />
+                            @error('tanggal_lahir') <div class="invalid-feedback">{{ $message }}</div> @enderror
+                        </div>
                     </div>
 
                     <div class="mb-3">
